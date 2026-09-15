@@ -153,9 +153,8 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.191"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
+version = "0.2.191+phoenix"
+source = "git+https://github.com/phoenix-rtos/libc-rs?branch=adamgreloch%2Fphoenix-0.2#1877528c143fbf0062288cd736b1cc88414b8430"
 dependencies = [
  "rustc-std-workspace-core",
 ]
