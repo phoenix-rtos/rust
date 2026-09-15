@@ -35,7 +35,14 @@ fn instant_monotonic_concurrent() -> std::thread::Result<()> {
         .map(|_| {
             std::thread::spawn(|| {
                 let mut old = Instant::now();
-                let count = if cfg!(miri) { 1_000 } else { 5_000_000 };
+                // on Phoenix every `Instant::now()` is a `gettime` syscall
+                let count = if cfg!(miri) {
+                    1_000
+                } else if cfg!(target_os = "phoenix") {
+                    1_000_000
+                } else {
+                    5_000_000
+                };
                 for _ in 0..count {
                     let new = Instant::now();
                     assert!(new >= old);

@@ -18,6 +18,7 @@ unsafe extern "C" {
             target_os = "l4re",
             target_os = "hurd",
             target_os = "teeos",
+            target_os = "phoenix",
         ),
         link_name = "__errno_location"
     )]

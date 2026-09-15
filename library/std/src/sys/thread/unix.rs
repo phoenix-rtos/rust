@@ -6,6 +6,7 @@
     target_os = "hurd",
     target_os = "aix",
     target_os = "wasi",
+    target_os = "phoenix",
 )))]
 use crate::ffi::CStr;
 use crate::mem::{self, DropGuard, ManuallyDrop};
@@ -28,9 +29,13 @@ use crate::{cmp, io, ptr, sys};
     target_os = "l4re",
     target_os = "vxworks",
     target_os = "espidf",
-    target_os = "nuttx"
+    target_os = "nuttx",
+    target_os = "phoenix"
 )))]
 pub const DEFAULT_MIN_STACK_SIZE: usize = 2 * 1024 * 1024;
+#[cfg(target_os = "phoenix")]
+pub const DEFAULT_MIN_STACK_SIZE: usize =
+    if cfg!(any(target_arch = "x86", target_arch = "arm")) { 8 * 1024 } else { 16 * 1024 };
 #[cfg(target_os = "l4re")]
 pub const DEFAULT_MIN_STACK_SIZE: usize = 1024 * 1024;
 #[cfg(target_os = "vxworks")]

@@ -240,6 +240,10 @@ cfg_select! {
 #[link(name = "gcc_s")]
 unsafe extern "C" {}
 
+#[cfg(target_os = "phoenix")]
+#[link(name = "gcc")]
+unsafe extern "C" {}
+
 #[cfg(all(target_os = "wasi", panic = "unwind"))]
 #[link(name = "unwind")]
 unsafe extern "C" {}

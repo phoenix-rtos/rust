@@ -50,7 +50,7 @@ cfg_select! {
         pub mod unix;
         #[cfg(target_vendor = "apple")]
         pub mod darwin;
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "phoenix"))]
         pub mod linux;
     }
     target_family = "wasm" => {

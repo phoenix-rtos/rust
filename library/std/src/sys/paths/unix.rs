@@ -364,7 +364,7 @@ pub fn current_exe() -> io::Result<PathBuf> {
     crate::fs::read_to_string("sys:exe").map(PathBuf::from)
 }
 
-#[cfg(target_os = "l4re")]
+#[cfg(any(target_os = "l4re", target_os = "phoenix"))]
 pub fn current_exe() -> io::Result<PathBuf> {
     Err(io::const_error!(io::ErrorKind::Unsupported, "not yet implemented!"))
 }

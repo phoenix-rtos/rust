@@ -49,7 +49,13 @@ cfg_select! {
         mod getrandom;
         pub use getrandom::fill_bytes;
     }
-    any(target_os = "aix", target_os = "hurd", target_os = "nto", target_os = "qnx") => {
+    any(
+        target_os = "aix",
+        target_os = "hurd",
+        target_os = "nto",
+        target_os = "qnx",
+        target_os = "phoenix"
+    ) => {
         mod unix_legacy;
         pub use unix_legacy::fill_bytes;
     }

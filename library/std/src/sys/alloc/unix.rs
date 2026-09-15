@@ -62,6 +62,10 @@ pub unsafe fn alloc_zeroed(layout: Layout) -> *mut u8 {
 
 #[inline]
 pub unsafe fn dealloc(ptr: *mut u8, _layout: Layout) {
+    #[cfg(target_os = "phoenix")]
+    if _layout.align() > MIN_ALIGN {
+        return unsafe { aligned_free(ptr) };
+    }
     unsafe { libc::free(ptr as *mut libc::c_void) }
 }
 
@@ -81,6 +85,31 @@ cfg_select! {
         #[inline]
         unsafe fn aligned_malloc(layout: &Layout) -> *mut u8 {
             unsafe { libc::memalign(layout.align(), layout.size()) as *mut u8 }
+        }
+    }
+    target_os = "phoenix" => {
+        #[inline]
+        unsafe fn aligned_malloc(layout: &Layout) -> *mut u8 {
+            let align = layout.align();
+            if align <= MIN_ALIGN {
+                return unsafe { libc::malloc(layout.size()) as *mut u8 };
+            }
+            let Some(alloc_size) = layout.size().checked_add(align) else {
+                return ptr::null_mut();
+            };
+            let base = unsafe { libc::malloc(alloc_size) as *mut u8 };
+            if base.is_null() {
+                return ptr::null_mut();
+            }
+            let aligned = base.wrapping_add(align - (base.addr() & (align - 1)));
+            unsafe { aligned.cast::<*mut u8>().sub(1).write_unaligned(base) };
+            aligned
+        }
+
+        #[inline]
+        unsafe fn aligned_free(ptr: *mut u8) {
+            let base = unsafe { ptr.cast::<*mut u8>().sub(1).read_unaligned() };
+            unsafe { libc::free(base as *mut libc::c_void) }
         }
     }
     _ => {

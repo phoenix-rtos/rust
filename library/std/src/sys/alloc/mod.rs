@@ -12,6 +12,9 @@ const MIN_ALIGN: usize = if cfg!(any(
 )) {
     // The allocator on the esp-idf and zkvm platforms guarantees 4 byte alignment.
     4
+} else if cfg!(target_os = "phoenix") {
+    // libphoenix's malloc (`stdlib/malloc_dl.c`) rounds chunks to 8 bytes.
+    8
 } else if cfg!(any(
     target_arch = "x86",
     target_arch = "arm",

@@ -274,6 +274,7 @@ cfg_select! {
         target_os = "qnx",
         target_os = "vxworks",
         target_os = "l4re",
+        target_os = "phoenix",
     ) => {
         pub use crate::sys::fs::common::Dir;
     }
@@ -803,6 +804,7 @@ impl ReadDir {
                 target_os = "qnx",
                 target_os = "vxworks",
                 target_os = "l4re",
+                target_os = "phoenix",
             ) => Dir::open(&self.inner.root, &options),
             // Use `dirfd` where possible.
             _ => {
@@ -1018,6 +1020,7 @@ impl Drop for DirStream {
             target_os = "horizon",
             target_os = "vxworks",
             target_os = "rtems",
+            target_os = "phoenix",
         )))]
         {
             let fd = unsafe { libc::dirfd(self.0) };
@@ -1058,6 +1061,7 @@ impl DirEntry {
                 target_os = "horizon",
                 target_os = "vxworks",
                 target_os = "rtems",
+                target_os = "phoenix",
             )) => {
                 let fd = cvt(unsafe { libc::dirfd(self.dir.dirp.0) })?;
 
@@ -1567,11 +1571,13 @@ impl File {
                 target_os = "espidf",
                 target_os = "horizon",
                 target_os = "nuttx",
-                target_os = "l4re"
+                target_os = "l4re",
+                target_os = "phoenix",
             ) => {
                 // Redox doesn't appear to support `UTIME_OMIT`.
-                // ESP-IDF and HorizonOS do not support `futimens` at all and the behavior for those OS is therefore
-                // the same as for Redox.
+                // ESP-IDF, HorizonOS and Phoenix-RTOS do not support `futimens`
+                // at all and the behavior for those OS is therefore the same as
+                // for Redox.
                 let _ = times;
                 Err(io::const_error!(
                     io::ErrorKind::Unsupported,
@@ -1655,6 +1661,7 @@ impl File {
     target_os = "espidf",
     target_os = "horizon",
     target_os = "nuttx",
+    target_os = "phoenix",
 )))]
 fn file_time_to_timespec(time: Option<SystemTime>) -> io::Result<libc::timespec> {
     match time {
@@ -2083,6 +2090,7 @@ pub fn link(original: &CStr, link: &CStr) -> io::Result<()> {
             target_os = "horizon",
             target_os = "vita",
             target_os = "l4re",
+            target_os = "phoenix",
             target_env = "nto70",
         ) => {
             cvt(unsafe { libc::link(original.as_ptr(), link.as_ptr()) })?;
@@ -2169,7 +2177,8 @@ fn set_times_impl(p: &CStr, times: FileTimes, follow_symlinks: bool) -> io::Resu
             target_os = "horizon",
             target_os = "nuttx",
             target_os = "vita",
-            target_os = "rtems"
+            target_os = "rtems",
+            target_os = "phoenix",
         ) => {
             let _ = (p, times, follow_symlinks);
             Err(io::const_error!(io::ErrorKind::Unsupported, "setting file times not supported"))
@@ -2483,6 +2492,7 @@ pub use remove_dir_impl::remove_dir_all;
     target_os = "qnx",
     target_os = "vxworks",
     target_os = "l4re",
+    target_os = "phoenix",
     miri
 ))]
 mod remove_dir_impl {
@@ -2499,6 +2509,7 @@ mod remove_dir_impl {
     target_os = "qnx",
     target_os = "vxworks",
     target_os = "l4re",
+    target_os = "phoenix",
     miri
 )))]
 mod remove_dir_impl {

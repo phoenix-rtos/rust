@@ -58,6 +58,7 @@ cfg_select! {
             target_os = "hurd",
             target_os = "aix",
             target_os = "wasi",
+            target_os = "phoenix",
         )))]
         pub use unix::set_name;
         #[cfg(any(
@@ -88,6 +89,7 @@ cfg_select! {
             target_os = "hurd",
             target_os = "aix",
             target_os = "wasi",
+            target_os = "phoenix",
         ))]
         pub use unsupported::set_name;
     }

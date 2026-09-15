@@ -210,3 +210,44 @@ pub mod partial_availability {
         }
     }
 }
+
+/// Phoenix-RTOS's libm does not define these, and `std` calls them through
+/// `sys::cmath`. Its own versions of the rest of `partial_availability` are kept.
+#[cfg(target_os = "phoenix")]
+pub mod phoenix_availability {
+    libm_intrinsics! {
+        fn acosh(x: f64) -> f64;
+        fn acoshf(x: f32) -> f32;
+        fn asinh(x: f64) -> f64;
+        fn asinhf(x: f32) -> f32;
+        fn erf(x: f64) -> f64;
+        fn erfc(x: f64) -> f64;
+        fn erfcf(x: f32) -> f32;
+        fn erff(x: f32) -> f32;
+        fn exp2(x: f64) -> f64;
+        fn exp2f(x: f32) -> f32;
+        fn expm1(x: f64) -> f64;
+        fn expm1f(n: f32) -> f32;
+        fn hypot(x: f64, y: f64) -> f64;
+        fn hypotf(x: f32, y: f32) -> f32;
+        fn log1p(x: f64) -> f64;
+        fn log1pf(n: f32) -> f32;
+        fn log2f(x: f32) -> f32;
+        fn tgamma(x: f64) -> f64;
+        fn tgammaf(x: f32) -> f32;
+    }
+
+    intrinsics! {
+        pub extern "C" fn lgamma_r(x: f64, s: &mut i32) -> f64 {
+            let r = super::libm_math::lgamma_r(x);
+            *s = r.1;
+            r.0
+        }
+
+        pub extern "C" fn lgammaf_r(x: f32, s: &mut i32) -> f32 {
+            let r = super::libm_math::lgammaf_r(x);
+            *s = r.1;
+            r.0
+        }
+    }
+}
