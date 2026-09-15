@@ -580,6 +580,7 @@ impl FileDesc {
         target_os = "vxworks",
         target_os = "nto",
         target_os = "qnx",
+        target_os = "phoenix",
         target_os = "wasi",
     )))]
     pub fn set_cloexec(&self) -> io::Result<()> {
@@ -605,6 +606,7 @@ impl FileDesc {
         target_os = "vxworks",
         target_os = "nto",
         target_os = "qnx",
+        target_os = "phoenix",
         target_os = "wasi",
     ))]
     pub fn set_cloexec(&self) -> io::Result<()> {

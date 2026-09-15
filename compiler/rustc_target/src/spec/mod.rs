@@ -1390,6 +1390,14 @@ supported_targets! {
     ("riscv64gc-unknown-freebsd", riscv64gc_unknown_freebsd),
     ("x86_64-unknown-freebsd", x86_64_unknown_freebsd),
 
+    ("aarch64-unknown-phoenix", aarch64_unknown_phoenix),
+    ("armv7a-unknown-phoenix", armv7a_unknown_phoenix),
+    ("armv7r-unknown-phoenix", armv7r_unknown_phoenix),
+    ("armv8r-unknown-phoenix", armv8r_unknown_phoenix),
+    ("i586-unknown-phoenix", i586_unknown_phoenix),
+    ("riscv64gc-unknown-phoenix", riscv64gc_unknown_phoenix),
+    ("sparc-unknown-phoenix", sparc_unknown_phoenix),
+
     ("x86_64-unknown-dragonfly", x86_64_unknown_dragonfly),
 
     ("aarch64-unknown-openbsd", aarch64_unknown_openbsd),
@@ -1878,6 +1886,7 @@ crate::target_spec_enum! {
         NuttX = "nuttx",
         OpenBsd = "openbsd",
         Ps3 = "ps3",
+        Phoenix = "phoenix",
         Psp = "psp",
         Psx = "psx",
         Qnx = "qnx",
@@ -1914,6 +1923,8 @@ impl Os {
 crate::target_spec_enum! {
     pub enum Env {
         Gnu = "gnu",
+        Libphoenix = "libphoenix",
+        LibphoenixNoMmu = "libphoenix_nommu",
         MacAbi = "macabi",
         Mlibc = "mlibc",
         Msvc = "msvc",

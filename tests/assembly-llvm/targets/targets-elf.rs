@@ -94,6 +94,9 @@
 //@ revisions: aarch64_unknown_nto_qnx710_iosock
 //@ [aarch64_unknown_nto_qnx710_iosock] compile-flags: --target aarch64-unknown-nto-qnx710_iosock
 //@ [aarch64_unknown_nto_qnx710_iosock] needs-llvm-components: aarch64
+//@ revisions: aarch64_unknown_phoenix
+//@ [aarch64_unknown_phoenix] compile-flags: --target aarch64-unknown-phoenix
+//@ [aarch64_unknown_phoenix] needs-llvm-components: aarch64
 //@ revisions: aarch64_unknown_qnx
 //@ [aarch64_unknown_qnx] compile-flags: --target aarch64-unknown-qnx
 //@ [aarch64_unknown_qnx] needs-llvm-components: aarch64
@@ -238,6 +241,9 @@
 //@ revisions: armv7a_nuttx_eabihf
 //@ [armv7a_nuttx_eabihf] compile-flags: --target armv7a-nuttx-eabihf
 //@ [armv7a_nuttx_eabihf] needs-llvm-components: arm
+//@ revisions: armv7a_unknown_phoenix
+//@ [armv7a_unknown_phoenix] compile-flags: --target armv7a-unknown-phoenix
+//@ [armv7a_unknown_phoenix] needs-llvm-components: arm
 //@ revisions: thumbv7a_vex_v5
 //@ [thumbv7a_vex_v5] compile-flags: --target thumbv7a-vex-v5
 //@ [thumbv7a_vex_v5] needs-llvm-components: arm
@@ -247,9 +253,15 @@
 //@ revisions: armv7r_none_eabihf
 //@ [armv7r_none_eabihf] compile-flags: --target armv7r-none-eabihf
 //@ [armv7r_none_eabihf] needs-llvm-components: arm
+//@ revisions: armv7r_unknown_phoenix
+//@ [armv7r_unknown_phoenix] compile-flags: --target armv7r-unknown-phoenix
+//@ [armv7r_unknown_phoenix] needs-llvm-components: arm
 //@ revisions: armv8r_none_eabihf
 //@ [armv8r_none_eabihf] compile-flags: --target armv8r-none-eabihf
 //@ [armv8r_none_eabihf] needs-llvm-components: arm
+//@ revisions: armv8r_unknown_phoenix
+//@ [armv8r_unknown_phoenix] compile-flags: --target armv8r-unknown-phoenix
+//@ [armv8r_unknown_phoenix] needs-llvm-components: arm
 // FIXME: disabled since it fails on CI saying the csky component is missing
 /*
     revisions: csky_unknown_linux_gnuabiv2
@@ -280,6 +292,9 @@
 //@ revisions: i586_unknown_netbsd
 //@ [i586_unknown_netbsd] compile-flags: --target i586-unknown-netbsd
 //@ [i586_unknown_netbsd] needs-llvm-components: x86
+//@ revisions: i586_unknown_phoenix
+//@ [i586_unknown_phoenix] compile-flags: --target i586-unknown-phoenix
+//@ [i586_unknown_phoenix] needs-llvm-components: x86
 //@ revisions: i586_unknown_redox
 //@ [i586_unknown_redox] compile-flags: --target i586-unknown-redox
 //@ [i586_unknown_redox] needs-llvm-components: x86
@@ -562,6 +577,9 @@
 //@ revisions: riscv64gc_unknown_openbsd
 //@ [riscv64gc_unknown_openbsd] compile-flags: --target riscv64gc-unknown-openbsd
 //@ [riscv64gc_unknown_openbsd] needs-llvm-components: riscv
+//@ revisions: riscv64gc_unknown_phoenix
+//@ [riscv64gc_unknown_phoenix] compile-flags: --target riscv64gc-unknown-phoenix
+//@ [riscv64gc_unknown_phoenix] needs-llvm-components: riscv
 //@ revisions: riscv64gc_unknown_redox
 //@ [riscv64gc_unknown_redox] compile-flags: --target riscv64gc-unknown-redox
 //@ [riscv64gc_unknown_redox] needs-llvm-components: riscv
@@ -598,6 +616,9 @@
 //@ revisions: sparc_unknown_none_elf
 //@ [sparc_unknown_none_elf] compile-flags: --target sparc-unknown-none-elf
 //@ [sparc_unknown_none_elf] needs-llvm-components: sparc
+//@ revisions: sparc_unknown_phoenix
+//@ [sparc_unknown_phoenix] compile-flags: --target sparc-unknown-phoenix
+//@ [sparc_unknown_phoenix] needs-llvm-components: sparc
 //@ revisions: sparcv9_sun_solaris
 //@ [sparcv9_sun_solaris] compile-flags: --target sparcv9-sun-solaris
 //@ [sparcv9_sun_solaris] needs-llvm-components: sparc

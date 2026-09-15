@@ -684,6 +684,7 @@ fn human_readable_target_os(os: Symbol) -> Option<&'static str> {
         Nto => "QNX SDP 7.x",
         NuttX => "NuttX",
         OpenBsd => "OpenBSD",
+        Phoenix => "Phoenix-RTOS",
         Ps3 => "Play Station 3",
         Psp => "Play Station Portable",
         Psx => "Play Station 1",
@@ -759,6 +760,8 @@ fn human_readable_target_env(env: Symbol) -> Option<&'static str> {
     Some(match env {
         // tidy-alphabetical-start
         Gnu => "GNU",
+        Libphoenix => "libphoenix",
+        LibphoenixNoMmu => "libphoenix without MMU",
         MacAbi => "Catalyst",
         Mlibc => "Managarm C Library",
         Msvc => "MSVC",
