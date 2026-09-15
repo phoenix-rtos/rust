@@ -11,6 +11,9 @@ const ALLOWED_SOURCES: &[&str] = &[
     r#""registry+https://github.com/rust-lang/crates.io-index""#,
     // This is `rust_team_data` used by `site` in src/tools/rustc-perf,
     r#""git+https://github.com/rust-lang/team#db2c1ed9fbc0216e533db954cd249045c01c7406""#,
+    // Phoenix-RTOS: libc in library/Cargo.lock, from library/Cargo.toml's
+    // [patch.crates-io]. Update together with the lock file.
+    r#""git+https://github.com/phoenix-rtos/libc-rs?branch=adamgreloch%2Fphoenix-0.2#f3626caafabada70c4b8e782f2a0b652968ae145""#,
 ];
 
 /// Checks for external package sources. `root` is the path to the directory that contains the

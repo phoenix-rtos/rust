@@ -88,3 +88,6 @@ rustc-std-workspace-std = { path = 'rustc-std-workspace-std' }
 
 # See comments in `library/windows-sys/Cargo.toml` for why this is patched
 windows-sys = { path = 'windows-sys' }
+
+# Phoenix-RTOS libc fork until upstreamed
+libc = { git = 'https://github.com/phoenix-rtos/libc-rs', branch = 'adamgreloch/phoenix-0.2' }
