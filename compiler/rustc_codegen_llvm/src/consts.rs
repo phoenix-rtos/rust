@@ -16,7 +16,7 @@ use rustc_middle::mono::MonoItem;
 use rustc_middle::ty::layout::{HasTypingEnv, LayoutOf};
 use rustc_middle::ty::{self, Instance};
 use rustc_span::{Symbol, bug, span_bug};
-use rustc_target::spec::Arch;
+use rustc_target::spec::{Arch, RelocModel};
 use tracing::{debug, instrument, trace};
 
 use crate::common::CodegenCx;
@@ -318,6 +318,35 @@ impl<'ll> CodegenCx<'ll, '_> {
         gv
     }
 
+    /// Whether a read-only allocation may be emitted as an LLVM `constant`.
+    ///
+    /// Under ROPI, LLVM keeps constants in read-only sections addressed relative
+    /// to the code, and assumes the static linker has already resolved any
+    /// pointers they hold. That only holds when code and data move together. A
+    /// loader that runs the text segment in place and places the data segment
+    /// independently (e.g. Phoenix-RTOS without an MMU, which executes from
+    /// flash) can relocate the writable segment but not the image, so a vtable
+    /// or a `&'static` table left in `.rodata` keeps its link-time addresses.
+    /// Clang rejects such initializers in C under ROPI; here they are emitted
+    /// as ordinary globals instead, which puts them in the writable,
+    /// SB-relative segment, much like `.data.rel.ro` under `-fpic`.
+    ///
+    /// Such globals are also marked `externally_initialized`, which is what
+    /// they are: the loader rewrites them before the program starts. Without
+    /// it GlobalOpt would notice they are never stored to and make them
+    /// `constant` again, undoing the above.
+    pub(crate) fn alloc_can_be_constant(&self, alloc: &Allocation) -> bool {
+        !(matches!(self.tcx.sess.relocation_model(), RelocModel::Ropi | RelocModel::RopiRwpi)
+            && !alloc.provenance().ptrs().is_empty())
+    }
+
+    /// Emit a read-only allocation that [`Self::alloc_can_be_constant`]
+    /// rejected: writable, and opaque to optimisations that assume the
+    /// initializer is what the program sees at run time.
+    pub(crate) fn mark_loader_relocated(&self, gv: &'ll Value) {
+        llvm::set_externally_initialized(gv, true);
+    }
+
     /// Create a global constant.
     ///
     /// The returned global variable is a pointer in the default address space for globals.
@@ -536,7 +565,11 @@ impl<'ll> CodegenCx<'ll, '_> {
 
         // Forward the allocation's mutability (picked by the const interner) to LLVM.
         if alloc.mutability.is_not() {
-            llvm::set_global_constant(g, true);
+            if self.alloc_can_be_constant(alloc) {
+                llvm::set_global_constant(g, true);
+            } else {
+                self.mark_loader_relocated(g);
+            }
         }
 
         debuginfo::build_global_var_di_node(self, def_id, g);
@@ -916,7 +949,13 @@ impl<'ll> StaticCodegenMethods for CodegenCx<'ll, '_> {
         // same `ConstAllocation`?
         let cv = const_alloc_to_llvm(self, alloc.inner(), IsStatic::No, IsInitOrFini::No);
 
-        let gv = self.static_addr_of_impl(cv, alloc.inner().align, kind);
+        let gv = if self.alloc_can_be_constant(alloc.inner()) {
+            self.static_addr_of_impl(cv, alloc.inner().align, kind)
+        } else {
+            let gv = self.static_addr_of_mut(cv, alloc.inner().align, kind);
+            self.mark_loader_relocated(gv);
+            gv
+        };
         // static_addr_of_impl returns the bare global variable, which might not be in the default
         // address space. Cast to the default address space if necessary.
         self.const_pointercast(gv, self.type_ptr())
