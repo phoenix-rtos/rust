@@ -1,0 +1,23 @@
+# Bootstrap configuration for the Phoenix-RTOS toolchain.
+#
+#   cp bootstrap.phoenix.toml bootstrap.toml
+#   ./x.py build library   # stage1 sysroot
+
+change-id = 163731
+
+# LLVM is not patched for Phoenix; use the prebuilt one from rust-lang CI.
+llvm.download-ci-llvm = "if-unchanged"
+
+build.target = [
+    "x86_64-unknown-linux-gnu",
+    "riscv64gc-unknown-phoenix",
+    "i586-unknown-phoenix",
+    "aarch64-unknown-phoenix",
+    "armv7a-unknown-phoenix",
+    "armv7r-unknown-phoenix",
+    "armv8r-unknown-phoenix",
+    "sparc-unknown-phoenix",
+]
+
+rust.debug-assertions-std = true
+rust.lld = true
