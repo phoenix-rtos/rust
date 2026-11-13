@@ -1,0 +1,164 @@
+# Phoenix-RTOS toolchain: for each phoenix-* tag, build the toolchain with
+# build-phoenix-toolchain.sh and publish it as ghcr.io/phoenix-rtos/rust-toolchain:<tag>,
+# made by phoenix-rtos-docker's rust-toolchain/Dockerfile from the tarball built
+# here. phoenix-rtos-project's ci-rust.yml pins that tag.
+#
+# Upstream's workflows are left untouched; disable them in the fork's settings.
+name: phoenix
+
+on:
+  push:
+    tags:
+      - 'phoenix-*'
+  # re-runs, on a phoenix-* tag
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/phoenix-rtos/rust-toolchain
+  # stage 2 only rebuilds rustc with itself; the code it generates is the same
+  RUST_STAGE: 1
+  # where rust-toolchain/Dockerfile comes from
+  # TODO: master once the Rust images are merged there
+  DOCKER_REPOSITORY: phoenix-rtos/phoenix-rtos-docker
+  DOCKER_REF: adamgreloch/rust
+
+jobs:
+  toolchain:
+    name: toolchain
+    if: startsWith(github.ref, 'refs/tags/phoenix-')
+    # the binaries need the build host's glibc at most: 2.39, as in the
+    # Ubuntu 24.04 based phoenixrtos images
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # the build directory takes ~15 GB
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      # full history (without blobs): download-ci-llvm needs the closest
+      # upstream merge to decide whether LLVM is unchanged
+      - name: Checkout the repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      # Under GITHUB_ACTIONS, bootstrap takes HEAD^1 for the upstream commit
+      # to download LLVM for, as in upstream's merge-commit CI; here that is a
+      # fork commit. Without it, bootstrap looks for the last upstream merge
+      # that changed LLVM, as it does locally.
+      - name: Build the toolchain
+        run: |
+          env -u GITHUB_ACTIONS ./build-phoenix-toolchain.sh --stage "$RUST_STAGE" --with-cargo --prefix "$RUNNER_TEMP/install"
+
+      - name: Check the toolchain
+        run: |
+          ./check-phoenix-toolchain.sh --prefix "$RUNNER_TEMP/install" --no-library-tests
+
+      # The name says what the toolchain was built from, PHOENIX-TOOLCHAIN.json
+      # says it in full; ci-rust.yml takes the libc commit from it.
+      - name: Package the toolchain
+        id: package
+        run: |
+          host="$(sed -n '/^build.target = \[/,/^\]/s/^ *"\([^"]*\)",*$/\1/p' bootstrap.phoenix.toml | grep -v -- '-phoenix$')"
+          targets="$(sed -n '/^build.target = \[/,/^\]/s/^ *"\([^"]*\)",*$/\1/p' bootstrap.phoenix.toml | grep -- '-phoenix$')"
+          # git+<url>?branch=<url-encoded branch>#<commit>
+          libc="$(sed -n '/^name = "libc"$/,/^$/s/^source = "\(.*\)"$/\1/p' library/Cargo.lock)"
+          case "$libc" in
+            git+*'#'*) ;;
+            *) echo "::error::library/Cargo.lock: libc does not come from a git commit ('$libc')"; exit 1 ;;
+          esac
+          libc_url="${libc#git+}"
+          libc_url="${libc_url%%[?#]*}"
+          libc_commit="${libc##*#}"
+          libc_branch=""
+          case "$libc" in
+            *'?branch='*)
+              libc_branch="${libc#*\?branch=}"
+              libc_branch="${libc_branch%%#*}"
+              libc_branch="$(printf '%b' "${libc_branch//%/\\x}")"
+              ;;
+          esac
+          rust="$(git rev-parse HEAD)"
+          name="rust-phoenix-$(git log -1 --format=%cd --date=format:%Y%m%d)-${rust:0:10}-libc-${libc_commit:0:10}-$host"
+
+          mkdir -p "$RUNNER_TEMP/dist"
+          mv "$RUNNER_TEMP/install" "$RUNNER_TEMP/dist/$name"
+          jq -n \
+            --arg name "$name" \
+            --arg rustc "$("$RUNNER_TEMP/dist/$name/bin/rustc" -V | cut -d' ' -f2)" \
+            --arg rust "$rust" \
+            --arg ref "$GITHUB_REF_NAME" \
+            --arg upstream "$(git log -1 --author=bors --format=%H)" \
+            --arg upstream_date "$(git log -1 --author=bors --format=%cs)" \
+            --arg libc_url "$libc_url" \
+            --arg libc_branch "$libc_branch" \
+            --arg libc_commit "$libc_commit" \
+            --arg backtrace "$(git -C library/backtrace rev-parse HEAD)" \
+            --argjson stage "$RUST_STAGE" \
+            --arg host "$host" \
+            --argjson targets "$(printf '%s\n' $targets | jq -R . | jq -s .)" \
+            --arg cargo "$("$RUNNER_TEMP/dist/$name/bin/cargo" -V | cut -d' ' -f2)" \
+            '{
+              name: $name,
+              rustc: $rustc,
+              rust: {commit: $rust, ref: $ref},
+              upstream: {commit: $upstream, date: $upstream_date},
+              libc: {url: $libc_url, branch: (if $libc_branch == "" then null else $libc_branch end), commit: $libc_commit},
+              backtrace: {commit: $backtrace},
+              stage: $stage,
+              host: $host,
+              targets: $targets,
+              cargo: {version: $cargo, source: "toolchain"},
+              dirty: false
+            }' > "$RUNNER_TEMP/dist/$name/PHOENIX-TOOLCHAIN.json"
+          jq . "$RUNNER_TEMP/dist/$name/PHOENIX-TOOLCHAIN.json"
+
+          cd "$RUNNER_TEMP/dist"
+          tar -cJf "$name.tar.xz" "$name"
+          sha256sum "$name.tar.xz" > "$name.tar.xz.sha256"
+          rm -rf "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout phoenix-rtos-docker
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.DOCKER_REPOSITORY }}
+          ref: ${{ env.DOCKER_REF }}
+          path: phoenix-rtos-docker
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # the source label links the package to this repository, so that this
+      # workflow's token may push to it again
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: phoenix-rtos-docker/rust-toolchain
+          build-contexts: dist=${{ runner.temp }}/dist
+          build-args: |
+            RUST_TOOLCHAIN_SOURCE=local
+            RUST_TOOLCHAIN=${{ steps.package.outputs.name }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          tags: ${{ env.IMAGE }}:${{ github.ref_name }}
+          push: true
+
+      - name: Summary
+        run: |
+          echo "\`${IMAGE}:${GITHUB_REF_NAME}\`: ${{ steps.package.outputs.name }}" >> "$GITHUB_STEP_SUMMARY"
