@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+#
+# rustc's linker for building Phoenix-RTOS test binaries without a Phoenix
+# sysroot (build-phoenix-tests.sh). Instead of an executable it leaves, in
+# $PHOENIX_TESTS:
+#
+#   <test>.o     the test's own objects, partially linked (a crate's unit
+#                tests: <crate>-unittests)
+#   <test>.link  "rlib <file>" for each rlib, then "arg <argument>" for the rest
+#                of rustc's link command (native libraries, flags)
+#   rlibs/       the rlibs, shared by all tests of the target
+#
+# phoenix-rtos-project links them against its libphoenix
+# (scripts/rust/test-link.sh). The name must not end in "ld": rustc would
+# then drive it as ld rather than as a C compiler and leave out the compiler
+# flags.
+#
+# Environment: PHOENIX_TESTS (output directory), PHOENIX_TEST_LD (a GNU ld
+# command line for the target, which partially links the test's objects).
+
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+
+
+PLACEHOLDER = "phoenix-test-link placeholder\n"
+
+
+def expand(args):
+    """The arguments, with rustc's response files (@file) read in."""
+    for arg in args:
+        if arg.startswith("@"):
+            with open(arg[1:], encoding="utf-8") as f:
+                yield from expand(shlex.split(f.read()))
+        else:
+            yield arg
+
+
+def main():
+    out = None
+    objects, rlibs, rest = [], [], []
+    args = iter(expand(sys.argv[1:]))
+    for arg in args:
+        if arg == "-o":
+            out = next(args)
+        elif arg.endswith(".o"):
+            objects.append(arg)
+        elif arg.endswith(".rlib"):
+            rlibs.append(arg)
+        else:
+            rest.append(arg)
+    if out is None:
+        sys.exit("phoenix-test-link: no -o")
+
+    dest = os.environ["PHOENIX_TESTS"]
+    name = re.sub(r"-[0-9a-f]{16}$", "", os.path.basename(out))
+    # cargo sets CARGO_TARGET_TMPDIR only for integration tests and benches; a
+    # crate's unit tests can share their name with one of its integration tests
+    if "CARGO_TARGET_TMPDIR" not in os.environ:
+        name += "-unittests"
+    os.makedirs(os.path.join(dest, "rlibs"), exist_ok=True)
+    if os.path.exists(os.path.join(dest, name + ".link")):
+        sys.exit(f"phoenix-test-link: two test binaries named {name} in {dest}")
+
+    ld = shlex.split(os.environ["PHOENIX_TEST_LD"])
+    if subprocess.run([*ld, "-r", "-o", os.path.join(dest, name + ".o"), *objects]).returncode != 0:
+        sys.exit(f"phoenix-test-link: {name}: partial link with '{shlex.join(ld)}' failed")
+    for rlib in rlibs:
+        target = os.path.join(dest, "rlibs", os.path.basename(rlib))
+        if not os.path.exists(target):
+            shutil.copyfile(rlib, target)
+    with open(os.path.join(dest, name + ".link"), "w", encoding="utf-8") as f:
+        f.writelines(f"rlib {os.path.basename(rlib)}\n" for rlib in rlibs)
+        f.writelines(f"arg {arg}\n" for arg in rest)
+
+    # cargo expects an executable; the test runner does not run it, and
+    # build-phoenix-tests.sh removes it so that the next run links again
+    with open(out, "w", encoding="utf-8") as f:
+        f.write(PLACEHOLDER)
+
+
+if __name__ == "__main__":
+    main()
