@@ -1,7 +1,11 @@
 # Phoenix-RTOS toolchain: for each phoenix-* tag, build the toolchain with
 # build-phoenix-toolchain.sh and publish it as ghcr.io/phoenix-rtos/rust-toolchain:<tag>,
 # made by phoenix-rtos-docker's rust-toolchain/Dockerfile from the tarball built
-# here. phoenix-rtos-project's ci-rust.yml pins that tag.
+# here. phoenix-rtos-project pins it in its RUST-TOOLCHAIN file.
+#
+# The standard library's tests, built unlinked by build-phoenix-tests.sh, go to
+# ghcr.io/phoenix-rtos/rust-toolchain-tests:<tag>, for phoenix-rtos-project to
+# link against its libphoenix and run (scripts/rust/test-link.sh).
 #
 # Upstream's workflows are left untouched; disable them in the fork's settings.
 name: phoenix
@@ -15,6 +19,7 @@ on:
 
 env:
   IMAGE: ghcr.io/phoenix-rtos/rust-toolchain
+  TESTS_IMAGE: ghcr.io/phoenix-rtos/rust-toolchain-tests
   # stage 2 only rebuilds rustc with itself; the code it generates is the same
   RUST_STAGE: 1
   # where rust-toolchain/Dockerfile comes from
@@ -60,6 +65,18 @@ jobs:
       - name: Check the toolchain
         run: |
           ./check-phoenix-toolchain.sh --prefix "$RUNNER_TEMP/install" --no-library-tests
+
+      # GNU ld for SPARC, which rust-lld does not support
+      - name: Install binutils for SPARC
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends binutils-sparc64-linux-gnu
+
+      # a crate whose tests do not build is left out, not a reason to hold the toolchain
+      - name: Build the library tests
+        run: |
+          env -u GITHUB_ACTIONS ./build-phoenix-tests.sh --stage "$RUST_STAGE" --out "$RUNNER_TEMP/tests" ||
+            echo "::warning::some library tests did not build, see the log"
 
       # The name says what the toolchain was built from, PHOENIX-TOOLCHAIN.json
       # says it in full; ci-rust.yml takes the libc commit from it.
@@ -119,6 +136,7 @@ jobs:
               dirty: false
             }' > "$RUNNER_TEMP/dist/$name/PHOENIX-TOOLCHAIN.json"
           jq . "$RUNNER_TEMP/dist/$name/PHOENIX-TOOLCHAIN.json"
+          mkdir -p "$RUNNER_TEMP/tests" && cp "$RUNNER_TEMP/dist/$name/PHOENIX-TOOLCHAIN.json" "$RUNNER_TEMP/tests/"
 
           cd "$RUNNER_TEMP/dist"
           tar -cJf "$name.tar.xz" "$name"
@@ -159,6 +177,15 @@ jobs:
           tags: ${{ env.IMAGE }}:${{ github.ref_name }}
           push: true
 
+      - name: Build and push the test image
+        run: |
+          printf 'FROM scratch\nCOPY . /opt/phoenix/rust-tests/\n' > "$RUNNER_TEMP/tests.Dockerfile"
+          docker buildx build --push -f "$RUNNER_TEMP/tests.Dockerfile" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            -t "$TESTS_IMAGE:$GITHUB_REF_NAME" "$RUNNER_TEMP/tests"
+
       - name: Summary
         run: |
           echo "\`${IMAGE}:${GITHUB_REF_NAME}\`: ${{ steps.package.outputs.name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${TESTS_IMAGE}:${GITHUB_REF_NAME}\`: $(ls "$RUNNER_TEMP/tests" | grep -- -phoenix | tr '\n' ' ')" >> "$GITHUB_STEP_SUMMARY"
