@@ -112,6 +112,8 @@ pub(crate) struct FullCx<'ll, 'tcx> {
 
     /// Cache of emitted const globals (value -> global)
     pub const_globals: RefCell<FxHashMap<&'ll Value, &'ll Value>>,
+    /// Cache of emitted read-only globals that cannot be constant (value -> global)
+    pub loader_relocated_globals: RefCell<FxHashMap<&'ll Value, &'ll Value>>,
 
     /// List of globals for static variables which need to be passed to the
     /// LLVM function ReplaceAllUsesWith (RAUW) when codegen is complete.
@@ -710,6 +712,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
                 vtables: Default::default(),
                 const_str_cache: Default::default(),
                 const_globals: Default::default(),
+                loader_relocated_globals: Default::default(),
                 statics_to_rauw: RefCell::new(Vec::new()),
                 used_statics: Vec::new(),
                 compiler_used_statics: Default::default(),

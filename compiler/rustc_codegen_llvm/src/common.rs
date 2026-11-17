@@ -250,14 +250,7 @@ impl<'ll, 'tcx> CodegenCx<'ll, 'tcx> {
 
         let value = match alloc.mutability {
             Mutability::Mut => self.static_addr_of_mut(init, alloc.align, None),
-            _ if self.alloc_can_be_constant(alloc) => {
-                self.static_addr_of_impl(init, alloc.align, None)
-            }
-            _ => {
-                let value = self.static_addr_of_mut(init, alloc.align, None);
-                self.mark_loader_relocated(value);
-                value
-            }
+            _ => self.static_addr_of_read_only(alloc, init, None),
         };
         if !self.sess().fewer_names() && llvm::get_value_name(value).is_empty() {
             let hash = self.tcx.with_stable_hashing_context(|mut hcx| {

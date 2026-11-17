@@ -266,6 +266,9 @@ fn check_and_apply_linkage<'ll, 'tcx>(
         llvm::set_unnamed_address(pointer_global, llvm::UnnamedAddr::Global);
 
         llvm::set_initializer(pointer_global, initializer);
+        if matches!(cx.tcx.sess.relocation_model(), RelocModel::Ropi | RelocModel::RopiRwpi) {
+            cx.mark_loader_relocated(pointer_global);
+        }
 
         pointer_global
     } else if cx.tcx.sess.target.arch == Arch::X86
@@ -345,6 +348,41 @@ impl<'ll> CodegenCx<'ll, '_> {
     /// initializer is what the program sees at run time.
     pub(crate) fn mark_loader_relocated(&self, gv: &'ll Value) {
         llvm::set_externally_initialized(gv, true);
+    }
+
+    fn declares_constant(&self, def_id: DefId) -> bool {
+        matches!(
+            self.tcx.sess.relocation_model(),
+            RelocModel::Ropi | RelocModel::Rwpi | RelocModel::RopiRwpi
+        ) && !self.tcx.is_foreign_item(def_id)
+            && self.tcx.eval_static_initializer(def_id).is_ok_and(|alloc| {
+                alloc.inner().mutability.is_not() && self.alloc_can_be_constant(alloc.inner())
+            })
+    }
+
+    pub(crate) fn static_addr_of_read_only(
+        &self,
+        alloc: &Allocation,
+        cv: &'ll Value,
+        kind: Option<&str>,
+    ) -> &'ll Value {
+        if self.alloc_can_be_constant(alloc) {
+            return self.static_addr_of_impl(cv, alloc.align, kind);
+        }
+        if let Some(&gv) = self.loader_relocated_globals.borrow().get(&cv) {
+            // as in static_addr_of_impl
+            unsafe {
+                let llalign = alloc.align.bytes() as u32;
+                if llalign > llvm::LLVMGetAlignment(gv) {
+                    llvm::LLVMSetAlignment(gv, llalign);
+                }
+            }
+            return gv;
+        }
+        let gv = self.static_addr_of_mut(cv, alloc.align, kind);
+        self.mark_loader_relocated(gv);
+        self.loader_relocated_globals.borrow_mut().insert(cv, gv);
+        gv
     }
 
     /// Create a global constant.
@@ -443,6 +481,8 @@ impl<'ll> CodegenCx<'ll, '_> {
         // symbol and another one doesn't.
         if fn_attrs.flags.contains(CodegenFnAttrFlags::THREAD_LOCAL) {
             llvm::set_thread_local_mode(g, self.tls_model);
+        } else if self.declares_constant(def_id) {
+            llvm::set_global_constant(g, true);
         }
 
         let dso_local = self.assume_dso_local(g, true);
@@ -949,13 +989,7 @@ impl<'ll> StaticCodegenMethods for CodegenCx<'ll, '_> {
         // same `ConstAllocation`?
         let cv = const_alloc_to_llvm(self, alloc.inner(), IsStatic::No, IsInitOrFini::No);
 
-        let gv = if self.alloc_can_be_constant(alloc.inner()) {
-            self.static_addr_of_impl(cv, alloc.inner().align, kind)
-        } else {
-            let gv = self.static_addr_of_mut(cv, alloc.inner().align, kind);
-            self.mark_loader_relocated(gv);
-            gv
-        };
+        let gv = self.static_addr_of_read_only(alloc.inner(), cv, kind);
         // static_addr_of_impl returns the bare global variable, which might not be in the default
         // address space. Cast to the default address space if necessary.
         self.const_pointercast(gv, self.type_ptr())
